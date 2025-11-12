@@ -5,7 +5,7 @@ import Register from "./components/Register";
 import Login from "./components/Login";
 import UploadFile from "./components/UploadFile";
 import { AuthContext } from "./contexts/AuthContext";
-import { AuthProvider } from "./contexts/AuthContext";
+
 
 function PrivateRoute({ children }) {
   const { token } = useContext(AuthContext);

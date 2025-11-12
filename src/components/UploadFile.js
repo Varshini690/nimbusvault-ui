@@ -4,7 +4,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 function UploadFile() {
-  const [file, setFile] = useState(null);
+  const [filesToUpload, setFilesToUpload] = useState([]); // ✅ multiple files
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -37,39 +37,46 @@ function UploadFile() {
 
   useEffect(() => {
     fetchFiles();
-    // Re-fetch files whenever token changes (after login)
   }, [token]);
 
-  // ✅ Handle file upload to S3
+  // ✅ Handle multiple file upload to S3
   const handleUpload = async () => {
-    if (!file) {
-      alert("Please select a file to upload.");
+    if (filesToUpload.length === 0) {
+      alert("Please select at least one file to upload.");
       return;
     }
 
     try {
       setLoading(true);
 
-      // 1️⃣ Ask backend for pre-signed upload URL
-      const res = await api.post(
-        "/file/upload_url",
-        { filename: file.name },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      for (const file of filesToUpload) {
+        // 1️⃣ Ask backend for pre-signed upload URL
+        const res = await api.post(
+          "/file/upload_url",
+          { filename: file.name },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-      const uploadUrl = res.data.upload_url;
+        const uploadUrl = res.data.upload_url;
 
-      // 2️⃣ Upload the file directly to S3
-      await axios.put(uploadUrl, file, {
-        headers: { "Content-Type": file.type },
-        onUploadProgress: (p) => {
-          const progress = Math.round((p.loaded / p.total) * 100);
-          console.log("Upload progress:", progress + "%");
-        },
-      });
+        // 2️⃣ Upload the file directly to S3
+        await axios.put(uploadUrl, file, {
+          headers: { "Content-Type": file.type },
+          onUploadProgress: (p) => {
+            const progress = Math.round((p.loaded / p.total) * 100);
+            console.log(`Uploading ${file.name}: ${progress}%`);
+          },
+        });
 
-      alert("File uploaded successfully ✅");
-      setFile(null);
+        console.log(`${file.name} uploaded successfully ✅`);
+      }
+
+      alert("All files uploaded successfully ✅");
+
+      // ✅ Reset the file input so “No file chosen” appears again
+      setFilesToUpload([]);
+      document.getElementById("fileInput").value = "";
+
       fetchFiles();
     } catch (err) {
       console.error("Upload error:", err);
@@ -130,7 +137,7 @@ function UploadFile() {
       {/* ✅ Logout Button */}
       <button
         onClick={handleLogout}
-        className="absolute top-6 right-6 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md transition"
+        className="absolute top-6 right-6 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-md transition"
       >
         Logout 🔒
       </button>
@@ -141,17 +148,38 @@ function UploadFile() {
         </h2>
 
         <div className="flex flex-col items-center space-y-4">
+          {/* ✅ Hidden native input for multiple files */}
           <input
             type="file"
-            onChange={(e) => setFile(e.target.files[0])}
-            className="border border-gray-300 p-2 rounded-md w-full max-w-md"
+            id="fileInput"
+            multiple
+            onChange={(e) => setFilesToUpload([...e.target.files])}
+            className="hidden"
           />
+
+          {/* ✅ Visible custom button */}
+          <div>
+            <label
+              htmlFor="fileInput"
+              className="cursor-pointer bg-purple-600 hover:bg-purple-700 text-black font-semibold text-lg py-3 px-8 rounded-lg shadow-lg transition-transform transform hover:scale-105"
+            >
+              Choose Files
+            </label>
+
+            {/* ✅ File name text */}
+            <p className="text-gray-800 font-medium text-base mt-2">
+              {filesToUpload.length > 0
+                ? filesToUpload.map((f) => f.name).join(", ")
+                : "No files chosen"}
+            </p>
+          </div>
+
           <button
             onClick={handleUpload}
             disabled={loading}
             className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-md transition"
           >
-            {loading ? "Uploading..." : "Upload File 🚀"}
+            {loading ? "Uploading..." : "Upload Files 🚀"}
           </button>
         </div>
 
